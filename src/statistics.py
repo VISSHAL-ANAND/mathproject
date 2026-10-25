@@ -27,7 +27,7 @@ def conformal_prediction_interval(prediction: float, calibration_residuals, cove
     residuals = np.asarray(calibration_residuals, dtype=float)
     residuals = residuals[np.isfinite(residuals)]
     if len(residuals) < 10:
-        raise ValueError("At least 10 calibration residuals are required for an uncertainty interval.")
+        raise ValueError("At least 10 calibration rows (residuals) are required for an uncertainty interval.")
     if not 0 < coverage < 1:
         raise ValueError("coverage must be between 0 and 1.")
     # Finite-sample split conformal needs ceil(coverage / (1 - coverage))
