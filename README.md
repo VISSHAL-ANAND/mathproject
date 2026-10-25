@@ -81,11 +81,12 @@ These estimates depend on the calibration data representing future cases. A nomi
 
 | Metric | Meaning | Preferred direction |
 |---|---|---|
-| **MAE** | Average absolute error, in minutes | Lower |
-| **RMSE** | Penalizes large errors more strongly, in minutes | Lower |
-| **R²** | Comparison with predicting the test-set mean | Generally higher |
+| **Validation MAE** | Used to select which model is highlighted | Lower |
+| **Test MAE** | Average absolute error on held-out test rows, in minutes | Lower |
+| **Test RMSE** | Penalizes large test errors more strongly, in minutes | Lower |
+| **Test R²** | Compares the model with predicting the test-set mean | Generally higher |
 
-A negative R² is possible and can indicate that the model performs worse than that simple baseline on the test set.
+The **training-mean baseline** always predicts the mean response time from the data used to fit it. More complex models should be compared against this simple reference. A negative test R² is possible and means the model performs worse than predicting the test-set mean. The test set is not used to choose the highlighted model.
 
 ## How it works
 
