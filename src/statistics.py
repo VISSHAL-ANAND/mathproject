@@ -30,8 +30,16 @@ def conformal_prediction_interval(prediction: float, calibration_residuals, cove
         raise ValueError("At least 10 calibration residuals are required for an uncertainty interval.")
     if not 0 < coverage < 1:
         raise ValueError("coverage must be between 0 and 1.")
+    # Finite-sample split conformal needs ceil(coverage / (1 - coverage))
+    # calibration points for a finite quantile at the requested coverage.
+    rank = int(np.ceil((len(residuals) + 1) * coverage))
+    if rank > len(residuals):
+        minimum = int(np.ceil(coverage / (1.0 - coverage)))
+        raise ValueError(
+            f"At least {minimum} calibration rows are required for a finite "
+            f"{coverage:.0%} prediction interval; only {len(residuals)} are available."
+        )
     absolute = np.abs(residuals)
-    rank = min(len(absolute), int(np.ceil((len(absolute) + 1) * coverage)))
     radius = float(np.sort(absolute)[rank - 1])
     return max(0.0, float(prediction) - radius), max(0.0, float(prediction) + radius)
 
