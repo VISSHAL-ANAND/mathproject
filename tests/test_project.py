@@ -1,9 +1,13 @@
 import numpy as np
 import pandas as pd
 import pytest
-from src.data import TARGET, make_demo_data, validate_dataset
+from src.data import (
+    OPENED_AT_META, TARGET, make_demo_data, validate_dataset,
+)
 from src.evaluate import evaluate_models
-from src.statistics import conformal_prediction_interval, probability_sla_breach, response_time_summary
+from src.statistics import (
+    conformal_prediction_interval, probability_sla_breach, response_time_summary,
+)
 
 
 def test_demo_data_reproducible_and_valid():
@@ -19,28 +23,75 @@ def test_demo_data_rejects_too_few_rows():
         make_demo_data(10)
 
 
-def test_validation_requires_target():
+def test_validation_requires_target_or_supported_alias():
     with pytest.raises(ValueError, match="response_time_minutes"):
-        validate_dataset(pd.DataFrame({"backlog": range(40)}))
+        validate_dataset(pd.DataFrame({"backlog": range(120)}))
 
 
-def test_evaluation_returns_models_metrics_and_calibration_data():
+def test_validation_rejects_too_few_usable_rows():
+    with pytest.raises(ValueError, match="At least 100 usable rows"):
+        validate_dataset(make_demo_data(99))
+
+
+def test_evaluation_selects_on_validation_and_reports_held_out_test_metrics():
     metrics, models, predictions, calibration = evaluate_models(make_demo_data(150))
-    assert set(metrics["Model"]) == {"Linear Regression", "Ridge Regression", "Random Forest"}
-    assert len(models) == 3
-    assert set(calibration) == set(models)
-    assert {"MAE (minutes)", "RMSE (minutes)", "R²"}.issubset(metrics.columns)
-    assert np.isfinite(metrics[["MAE (minutes)", "RMSE (minutes)", "R²"]]).all().all()
+    expected_models = {
+        "Training Mean Baseline", "Linear Regression", "Ridge Regression", "Random Forest",
+    }
+    assert set(metrics["Model"]) == expected_models
+    assert set(models) == expected_models
+    assert set(calibration) == expected_models
+    assert {
+        "Validation MAE (minutes)", "MAE (test minutes)",
+        "RMSE (test minutes)", "R² (test)",
+    }.issubset(metrics.columns)
+    assert np.isfinite(
+        metrics[["Validation MAE (minutes)", "MAE (test minutes)",
+                 "RMSE (test minutes)", "R² (test)"]]
+    ).all().all()
     assert len(predictions) == 30
-    assert all(len(values) == 30 for values in calibration.values())
+    assert all(len(values) == 15 for values in calibration.values())
+    assert metrics.iloc[0]["Validation MAE (minutes)"] == pytest.approx(
+        metrics["Validation MAE (minutes)"].min()
+    )
+    assert metrics.attrs["selected_model"] == metrics.iloc[0]["Model"]
+    assert metrics.attrs["split_method"] == "random"
+
+
+def test_known_ticket_csv_aliases_and_chronological_split():
+    frame = make_demo_data(150)
+    frame["first_response_min"] = frame.pop(TARGET)
+    frame["queue"] = frame.pop("category")
+    frame["opened_at"] = pd.date_range("2025-01-01", periods=len(frame), freq="h")
+    frame = frame.drop(columns=["hour_submitted", "day_of_week"])
+
+    clean = validate_dataset(frame)
+    assert TARGET in clean.columns
+    assert "category" in clean.columns
+    assert "hour_submitted" in clean.columns
+    assert "day_of_week" in clean.columns
+    assert OPENED_AT_META in clean.columns
+
+    metrics, _, predictions, calibration = evaluate_models(frame)
+    assert metrics.attrs["split_method"] == "chronological"
+    assert len(predictions) == 30
+    assert all(len(values) == 15 for values in calibration.values())
 
 
 def test_negative_targets_are_removed():
-    frame = make_demo_data(60)
+    frame = make_demo_data(120)
     frame.loc[0, TARGET] = -1
     clean = validate_dataset(frame)
     assert (clean[TARGET] >= 0).all()
-    assert len(clean) == 59
+    assert len(clean) == 119
+
+
+def test_missing_targets_are_removed():
+    frame = make_demo_data(120)
+    frame.loc[0, TARGET] = np.nan
+    clean = validate_dataset(frame)
+    assert clean[TARGET].notna().all()
+    assert len(clean) == 119
 
 
 def test_statistical_summary_has_bootstrap_confidence_interval():
