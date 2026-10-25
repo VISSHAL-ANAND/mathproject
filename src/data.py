@@ -47,6 +47,12 @@ def validate_dataset(data: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("At least one supported feature column is required.")
     result = data[features + [TARGET]].copy()
     result[TARGET] = pd.to_numeric(result[TARGET], errors="coerce")
+    for column in NUMERIC_FEATURES:
+        if column in result.columns:
+            result[column] = pd.to_numeric(result[column], errors="coerce")
+    for column in CATEGORICAL_FEATURES:
+        if column in result.columns:
+            result[column] = result[column].where(result[column].notna(), np.nan).astype("object")
     result = result.replace([np.inf, -np.inf], np.nan).dropna(subset=[TARGET])
     result = result[result[TARGET] >= 0]
     if len(result) < 30:
