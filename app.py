@@ -1,39 +1,42 @@
-"""Streamlit interface for response-time regression."""
+"""Streamlit dashboard for response-time prediction and statistical risk analysis."""
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
-from src.data import FEATURE_COLUMNS, TARGET, make_demo_data
+from src.data import CATEGORICAL_FEATURES, FEATURE_COLUMNS, TARGET, make_demo_data
 from src.evaluate import evaluate_models
+from src.statistics import conformal_prediction_interval, probability_sla_breach, response_time_summary
 
-st.set_page_config(page_title="Response Time Prediction", page_icon="📈", layout="wide")
-st.title("Response Time Prediction Using Regression Models")
-st.caption("College mathematics project • estimates time until first response, in minutes")
+st.set_page_config(page_title="CampusHelp Response Intelligence", page_icon="📊", layout="wide")
+st.title("CampusHelp Response Intelligence")
+st.caption("A student-support decision aid using regression, probability, and statistics.")
+st.info("Human problem: students often report a campus issue without knowing how long help will take or whether the service deadline will be missed.")
 
 with st.sidebar:
     st.header("Dataset")
-    uploaded = st.file_uploader("Upload CSV (optional)", type=["csv"])
-    st.info("Without an upload, the app uses synthetic demo data. Demo results are not real-world evidence.")
+    uploaded = st.file_uploader("Upload support-ticket CSV (optional)", type=["csv"])
+    st.info("Without an upload, the app uses synthetic demonstration data—not real campus records.")
+    sla_minutes = st.number_input("Service deadline (minutes)", min_value=5, max_value=1440, value=60, step=5)
+    interval_coverage = st.select_slider("Prediction interval coverage", options=[0.80, 0.90, 0.95], value=0.90)
 
 try:
-    if uploaded is not None:
-        raw = pd.read_csv(uploaded)
-        source_label = "Uploaded CSV"
-    else:
-        raw = make_demo_data()
-        source_label = "Synthetic demonstration dataset"
-    metrics, models, predictions = evaluate_models(raw)
+    raw = pd.read_csv(uploaded) if uploaded is not None else make_demo_data()
+    source_label = "Uploaded CSV" if uploaded is not None else "Synthetic demonstration dataset"
+    metrics, models, predictions, calibration_residuals = evaluate_models(raw)
 except Exception as exc:
     st.error(f"Could not process dataset: {exc}")
     st.stop()
 
-st.caption(f"Data source: {source_label}")
-a, b, c = st.columns(3)
-a.metric("Usable rows", f"{len(raw):,}")
-b.metric("Models compared", str(len(metrics)))
-c.metric("Best test MAE", f"{metrics.iloc[0]['MAE (minutes)']:.2f} min")
-st.warning("Metrics describe this dataset and split only. Synthetic-data results do not demonstrate real-world performance.")
+st.caption(f"Data source: {source_label} • Rows used: {len(raw):,}")
+st.warning("Demo statistics and model scores are illustrative only. They must not be presented as real-world findings.")
+summary = response_time_summary(raw)
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Average wait", f"{summary['mean']:.1f} min")
+m2.metric("Median wait", f"{summary['median']:.1f} min")
+m3.metric("90th percentile", f"{summary['q90']:.1f} min")
+m4.metric("95% CI for mean", f"{summary['mean_ci_low']:.1f}–{summary['mean_ci_high']:.1f} min")
+st.caption("The confidence interval describes uncertainty in the dataset mean, not the wait for an individual ticket.")
 
-st.subheader("Model comparison on held-out test data")
+st.subheader("Which regression model performs best?")
 st.dataframe(metrics, use_container_width=True, hide_index=True)
 st.bar_chart(metrics.set_index("Model")[["MAE (minutes)", "RMSE (minutes)"]])
 
@@ -52,7 +55,7 @@ with left:
     st.pyplot(fig)
     plt.close(fig)
 with right:
-    st.subheader("Residual distribution")
+    st.subheader("Prediction errors")
     fig, ax = plt.subplots()
     ax.hist(predictions["Residual (actual - predicted)"], bins=24)
     ax.set_xlabel("Residual (minutes)")
@@ -60,8 +63,8 @@ with right:
     st.pyplot(fig)
     plt.close(fig)
 
-st.subheader("Try a prediction")
-model_name = st.selectbox("Regression model", list(models.keys()), index=list(models.keys()).index(best_name))
+st.subheader("Predict a support request")
+st.caption("Uncertainty and deadline risk are estimated from a separate calibration split, not the final test data.")
 features = [col for col in FEATURE_COLUMNS if col in raw.columns and col != TARGET]
 if not features:
     st.error("No supported predictor columns were found.")
@@ -72,7 +75,7 @@ with st.form("prediction_form"):
     columns = st.columns(2)
     for i, feature in enumerate(features):
         with columns[i % 2]:
-            if feature in raw.select_dtypes(include=["object", "category"]).columns:
+            if feature in CATEGORICAL_FEATURES:
                 choices = sorted(raw[feature].dropna().astype(str).unique().tolist())
                 values[feature] = st.selectbox(feature.replace("_", " ").title(), choices or ["unknown"])
             else:
@@ -86,10 +89,23 @@ with st.form("prediction_form"):
                     feature.replace("_", " ").title(), min_value=minimum,
                     max_value=maximum, value=min(max(default, minimum), maximum)
                 )
-    submitted = st.form_submit_button("Predict response time")
+    model_name = st.selectbox("Model", list(models.keys()), index=list(models.keys()).index(best_name))
+    submitted = st.form_submit_button("Estimate wait and risk")
 
 if submitted:
     input_frame = pd.DataFrame([values], columns=features)
-    estimate = float(models[model_name].predict(input_frame)[0])
-    st.success(f"Estimated first response time: {max(0.0, estimate):.1f} minutes")
-    st.caption("This is an estimate, not a guarantee. Reliability depends on representative training data.")
+    estimate = max(0.0, float(models[model_name].predict(input_frame)[0]))
+    residuals = calibration_residuals[model_name]
+    lower, upper = conformal_prediction_interval(estimate, residuals, coverage=interval_coverage)
+    breach_probability = probability_sla_breach(estimate, residuals, sla_minutes)
+    p1, p2, p3 = st.columns(3)
+    p1.metric("Estimated first response", f"{estimate:.1f} min")
+    p2.metric(f"{interval_coverage:.0%} prediction interval", f"{lower:.1f}–{upper:.1f} min")
+    p3.metric(f"Chance of missing {sla_minutes}-minute deadline", f"{breach_probability:.0%}")
+    if breach_probability >= 0.70:
+        st.error("High estimated deadline risk: consider prioritizing this request or adding support capacity.")
+    elif breach_probability >= 0.35:
+        st.warning("Moderate estimated deadline risk: monitor this request.")
+    else:
+        st.success("Lower estimated deadline risk under this model and dataset.")
+    st.caption("These are empirical estimates, not guarantees. Reliability depends on representative, stable real-world data.")
