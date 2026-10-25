@@ -1,43 +1,48 @@
-# Research Notes and Reference Strategy
+# Research Notes and Methodology
 
 ## Research question
-Can support-ticket attributes predict time to first response, and can regression residuals provide useful uncertainty intervals and estimates of service-deadline breach risk?
+Can support-ticket attributes predict time to first response, and can a separate calibration sample provide useful prediction intervals and estimates of service-deadline risk?
 
 ## Human use case
-Campus support is the initial framing: students reporting Wi-Fi, account, hostel maintenance, or facility issues need an understandable estimate of when help may arrive. The same design can be adapted to other help desks if the target and data are suitable.
+Students reporting Wi-Fi, account, library, or hostel-maintenance problems often lack an understandable estimate of when help will arrive. The dashboard aims to provide a predicted wait, communicate uncertainty, and help staff notice possible deadline risk without automating service priority decisions.
 
-## Target definition
-`response_time_minutes` is elapsed minutes from submission to first human response. It is not ticket-resolution time. A real dataset must document timestamps, time zones, business-hour treatment, unanswered tickets, duplicates, and censoring. If no reliable first-response target exists, do not relabel resolution time as first response.
+## Target
+`response_time_minutes` is elapsed time from ticket submission to first human response. It is not ticket-resolution time. The app also recognizes `first_response_min` as a target alias. Missing first-response values are excluded from regression; if missing means never answered, the resulting dataset only describes answered tickets and may have survivorship bias.
 
-## Probability and statistics concepts demonstrated
-- Descriptive statistics: mean, median, sample standard deviation, and 90th percentile.
-- Bootstrap confidence interval: resample observed durations to estimate uncertainty in the population mean.
-- Regression: Linear Regression, Ridge Regression, and Random Forest.
-- Error analysis: MAE, RMSE, R², residual distribution, and actual-versus-predicted plot.
-- Split-conformal prediction interval: use absolute residuals from a calibration split to estimate an interval around a new prediction.
-- Empirical SLA-breach probability: apply the calibration residual distribution to the point estimate and calculate the fraction that exceeds the selected deadline.
+## Data source for import testing
+The [Datanemics Customer Support Tickets CSV](https://datanemics.com/datasets/data/support-tickets.csv) is described by its publisher as a 4,000-row synthetic dataset released under CC0 public-domain terms. It has `first_response_min`, `opened_at`, `queue`, `priority`, and `channel` fields. It is suitable for testing CSV import and chronological splitting, not for establishing real-world performance. The publisher documents blank first-response times for tickets that were never answered: https://datanemics.com/datasets/support-tickets/
 
 ## Evaluation protocol
-The current random split is approximately 60% train, 20% calibration, and 20% test. Fit all preprocessing on training rows only; use calibration residuals only for uncertainty and SLA calculations; use test rows only for model metrics. For real chronological ticket logs, use a time-based evaluation to better represent future predictions. If multiple rows come from the same requester or repeated incident, consider grouped splitting to avoid leakage.
+For the default 20% test size, the approximate split is 60% train, 10% validation, 10% calibration, 20% test.
+1. Fit preprocessing and candidate models on training rows.
+2. Select the highlighted model using validation MAE.
+3. Refit models on training + validation rows.
+4. Use calibration residuals for uncertainty intervals and empirical deadline-risk estimates.
+5. Use the final test set only for reported test metrics and error plots.
 
-## Important limitations
-The split-conformal interval relies on assumptions such as exchangeability between calibration and future cases; it may under-cover when operations change. The SLA estimate is an empirical residual-based estimate and should not be called a calibrated probability until validated on later real data. The bootstrap interval for the mean is not an individual prediction interval. Synthetic demonstration data can only test the software flow and concepts, not prove predictive value.
+If every usable row has a valid `opened_at`, use a chronological split: earlier data for training, then validation and calibration, and the latest period for final testing. Otherwise use reproducible random splitting. Chronological evaluation better matches forecasting future tickets, but temporal drift can reduce the validity of exchangeability-based uncertainty guarantees.
+
+## Probability and statistics concepts
+- Mean, median, sample standard deviation, and 90th percentile.
+- Bootstrap percentile confidence interval for the dataset mean; this is not a per-ticket prediction interval.
+- Linear Regression, Ridge Regression, Random Forest Regression.
+- Training-mean baseline to test whether model complexity adds value.
+- MAE, RMSE, and R² on held-out test rows.
+- Split-conformal prediction interval from absolute calibration residuals.
+- Empirical deadline-risk estimate from the calibration residual distribution.
+
+## Finite-sample and data-quality limits
+A finite split-conformal interval at 90% coverage requires at least 9 calibration residuals; this project uses a more conservative minimum of 10. At 95% coverage, at least 19 are required. If there are too few, the app explains that the requested interval is unavailable rather than presenting a misleading finite range. Risk estimates are still empirical and require representative future data to assess calibration.
+
+Unanswered tickets are not zero-minute waits. If the selected source has missing response time for unanswered tickets, dropping those rows can bias model evaluation toward answered tickets. A production version should handle unanswered tickets explicitly, potentially using survival/time-to-event methods, before claiming total queue performance.
 
 ## Reference sources
 1. Scikit-learn linear models: https://scikit-learn.org/stable/modules/linear_model.html
 2. Scikit-learn model evaluation: https://scikit-learn.org/stable/modules/model_evaluation.html
 3. Scikit-learn preprocessing and pipelines: https://scikit-learn.org/stable/modules/compose.html
-4. Scikit-learn prediction-interval example: https://scikit-learn.org/stable/auto_examples/inspection/plot_prediction_intervals.html
+4. Scikit-learn prediction interval example: https://scikit-learn.org/stable/auto_examples/inspection/plot_prediction_intervals.html
 5. James, Witten, Hastie, Tibshirani, Taylor, *An Introduction to Statistical Learning*: https://www.statlearning.com/
-6. UCI Machine Learning Repository: https://archive.ics.uci.edu/
-
-## Real-data checklist (not yet completed)
-- Find a documented dataset with a valid first-response duration or timestamps.
-- Verify license and redistribution conditions.
-- Exclude personal, confidential, and proprietary information.
-- Confirm every feature is known at the time of prediction.
-- Document missing/unanswered tickets and service-hour rules.
-- Evaluate on a later time period, compare to a simple baseline, and check underprediction for urgent tickets.
+6. Datanemics, Customer Support Tickets (synthetic, CC0): https://datanemics.com/datasets/support-tickets/
 
 ## Integrity note
-The built-in data generator creates artificial values with chosen effects and random noise. Its metrics must never be reported as real-world evidence. A suitable real dataset has not yet been selected or validated.
+Built-in and optional public sample data are synthetic. Their scores demonstrate implementation behavior, not real-world predictive value. Real operational use requires approved data, a documented target, temporal evaluation, privacy review, and error analysis by important groups.
