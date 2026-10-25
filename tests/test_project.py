@@ -120,3 +120,12 @@ def test_uncertainty_functions_require_calibration_data():
 def test_high_coverage_interval_requires_sufficient_calibration_rows():
     with pytest.raises(ValueError, match="At least 19 calibration rows"):
         conformal_prediction_interval(20, np.linspace(-5, 5, 10), 0.95)
+
+
+def test_streamlit_dashboard_renders_without_exceptions():
+    from pathlib import Path
+    from streamlit.testing.v1 import AppTest
+
+    app_path = Path(__file__).resolve().parents[1] / "app.py"
+    app = AppTest.from_file(str(app_path), default_timeout=60).run()
+    assert len(app.exception) == 0
