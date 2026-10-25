@@ -1,34 +1,43 @@
 # Research Notes and Reference Strategy
 
 ## Research question
-Can support-request attributes predict the elapsed time between submission and first response, and how do linear regression, regularized linear regression, and a tree-ensemble regressor compare?
+Can support-ticket attributes predict time to first response, and can regression residuals provide useful uncertainty intervals and estimates of service-deadline breach risk?
+
+## Human use case
+Campus support is the initial framing: students reporting Wi-Fi, account, hostel maintenance, or facility issues need an understandable estimate of when help may arrive. The same design can be adapted to other help desks if the target and data are suitable.
 
 ## Target definition
-response_time_minutes is elapsed minutes until the first response. It is not ticket resolution time. Dataset documentation must confirm that the source field really represents first response and explain how timestamps, business hours, and missing responses are handled.
+`response_time_minutes` is elapsed minutes from submission to first human response. It is not ticket-resolution time. A real dataset must document timestamps, time zones, business-hour treatment, unanswered tickets, duplicates, and censoring. If no reliable first-response target exists, do not relabel resolution time as first response.
 
-## Model concepts
-- Simple least-squares regression: choose intercept and slope to minimize the sum of squared residuals.
-- Multiple linear regression: estimates a linear combination of input features.
-- Ridge regression: adds an L2 penalty to discourage overly large coefficients.
-- Random Forest regression: averages predictions from an ensemble of decision trees and can capture nonlinear relationships.
+## Probability and statistics concepts demonstrated
+- Descriptive statistics: mean, median, sample standard deviation, and 90th percentile.
+- Bootstrap confidence interval: resample observed durations to estimate uncertainty in the population mean.
+- Regression: Linear Regression, Ridge Regression, and Random Forest.
+- Error analysis: MAE, RMSE, R², residual distribution, and actual-versus-predicted plot.
+- Split-conformal prediction interval: use absolute residuals from a calibration split to estimate an interval around a new prediction.
+- Empirical SLA-breach probability: apply the calibration residual distribution to the point estimate and calculate the fraction that exceeds the selected deadline.
 
-## Evaluation plan
-Use the same held-out test rows for each model. Report MAE in minutes, RMSE in minutes, and R-squared. Document split strategy, random seed, dataset size, target distribution, feature processing, and package versions. Compare against a simple baseline such as predicting the training-set mean. For chronological ticket logs, prefer a time-based split over a random split.
+## Evaluation protocol
+The current random split is approximately 60% train, 20% calibration, and 20% test. Fit all preprocessing on training rows only; use calibration residuals only for uncertainty and SLA calculations; use test rows only for model metrics. For real chronological ticket logs, use a time-based evaluation to better represent future predictions. If multiple rows come from the same requester or repeated incident, consider grouped splitting to avoid leakage.
 
-## Initial public references
+## Important limitations
+The split-conformal interval relies on assumptions such as exchangeability between calibration and future cases; it may under-cover when operations change. The SLA estimate is an empirical residual-based estimate and should not be called a calibrated probability until validated on later real data. The bootstrap interval for the mean is not an individual prediction interval. Synthetic demonstration data can only test the software flow and concepts, not prove predictive value.
+
+## Reference sources
 1. Scikit-learn linear models: https://scikit-learn.org/stable/modules/linear_model.html
 2. Scikit-learn model evaluation: https://scikit-learn.org/stable/modules/model_evaluation.html
 3. Scikit-learn preprocessing and pipelines: https://scikit-learn.org/stable/modules/compose.html
-4. James, Witten, Hastie, Tibshirani, Taylor, *An Introduction to Statistical Learning*: https://www.statlearning.com/
-5. UCI Machine Learning Repository: https://archive.ics.uci.edu/
+4. Scikit-learn prediction-interval example: https://scikit-learn.org/stable/auto_examples/inspection/plot_prediction_intervals.html
+5. James, Witten, Hastie, Tibshirani, Taylor, *An Introduction to Statistical Learning*: https://www.statlearning.com/
+6. UCI Machine Learning Repository: https://archive.ics.uci.edu/
 
-## Dataset research checklist
-- Is there a clear first-response timestamp or duration?
-- Is redistribution permitted by the dataset license?
-- Are there personal, confidential, or proprietary records?
-- Do the predictors exist at the moment a prediction would be made?
-- Are missing or unanswered tickets handled consistently?
-- Are rows time-dependent, requiring chronological evaluation?
+## Real-data checklist (not yet completed)
+- Find a documented dataset with a valid first-response duration or timestamps.
+- Verify license and redistribution conditions.
+- Exclude personal, confidential, and proprietary information.
+- Confirm every feature is known at the time of prediction.
+- Document missing/unanswered tickets and service-hour rules.
+- Evaluate on a later time period, compare to a simple baseline, and check underprediction for urgent tickets.
 
 ## Integrity note
-The included demo generator creates artificial values using chosen effects and random noise. Its scores only test software behavior; they do not establish that the predictors work on real support operations. The real-data experiment remains a task.
+The built-in data generator creates artificial values with chosen effects and random noise. Its metrics must never be reported as real-world evidence. A suitable real dataset has not yet been selected or validated.
