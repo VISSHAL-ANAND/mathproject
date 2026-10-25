@@ -283,6 +283,25 @@ st.markdown(
 )
 st.dataframe(metrics, use_container_width=True, hide_index=True)
 
+selected_model = metrics.attrs.get("selected_model", metrics.iloc[0]["Model"])
+baseline_mae = float(
+    metrics.loc[metrics["Model"] == "Training Mean Baseline", "Validation MAE (minutes)"].iloc[0]
+)
+selected_mae = float(
+    metrics.loc[metrics["Model"] == selected_model, "Validation MAE (minutes)"].iloc[0]
+)
+if selected_model == "Training Mean Baseline":
+    st.warning(
+        "No regression model beat the training-mean baseline on validation data. "
+        "The app selects the simpler baseline rather than claiming the more complex models add value."
+    )
+else:
+    improvement = max(0.0, (baseline_mae - selected_mae) / baseline_mae * 100.0) if baseline_mae > 0 else 0.0
+    st.success(
+        f"**Selected on validation:** {selected_model}. Its validation MAE is "
+        f"{improvement:.1f}% lower than the training-mean baseline."
+    )
+
 fig, ax = plt.subplots(figsize=(8.5, 3.4))
 plot_metrics = metrics.set_index("Model")
 x_positions = list(range(len(plot_metrics)))
@@ -316,7 +335,7 @@ fig.tight_layout()
 st.pyplot(fig, use_container_width=True)
 plt.close(fig)
 
-best_name = metrics.attrs.get("selected_model", metrics.iloc[0]["Model"])
+best_name = selected_model
 best_column = f"{best_name} prediction"
 left, right = st.columns(2)
 with left:
@@ -374,7 +393,7 @@ with right:
 st.divider()
 st.subheader("Estimate a support request")
 st.markdown(
-    '<div class="section-note">Enter values that would be known when the request is submitted. The interval and deadline risk use a separate calibration split, not the final test data.</div>',
+    '<div class="section-note">Enter values known at the moment you want to make the prediction. The interval and deadline risk use a separate calibration split, not the final test data.</div>',
     unsafe_allow_html=True,
 )
 
