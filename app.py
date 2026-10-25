@@ -369,9 +369,14 @@ if submitted:
     input_frame = pd.DataFrame([values], columns=features)
     estimate = max(0.0, float(models[model_name].predict(input_frame)[0]))
     residuals = calibration_residuals[model_name]
-    lower, upper = conformal_prediction_interval(
-        estimate, residuals, coverage=interval_coverage
-    )
+    interval_error = None
+    try:
+        lower, upper = conformal_prediction_interval(
+            estimate, residuals, coverage=interval_coverage
+        )
+    except ValueError as exc:
+        lower, upper = None, None
+        interval_error = str(exc)
     breach_probability = probability_sla_breach(estimate, residuals, sla_minutes)
 
     st.markdown("#### Your estimate")
@@ -379,13 +384,15 @@ if submitted:
     p1.metric("Estimated first response", f"{estimate:.1f} min")
     p2.metric(
         f"{interval_coverage:.0%} prediction interval",
-        f"{lower:.1f}–{upper:.1f} min",
+        f"{lower:.1f}–{upper:.1f} min" if lower is not None else "More data needed",
     )
     p3.metric(
-        f"Estimated deadline-breach risk",
+        "Estimated deadline-breach risk",
         f"{breach_probability:.0%}",
         help=f"Empirical estimate of exceeding {sla_minutes} minutes from calibration residuals.",
     )
+    if interval_error:
+        st.info(interval_error)
 
     if breach_probability >= 0.70:
         st.error(
