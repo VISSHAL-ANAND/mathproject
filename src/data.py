@@ -82,7 +82,7 @@ def validate_dataset(data: pd.DataFrame) -> pd.DataFrame:
         if "hour_submitted" not in work.columns:
             work["hour_submitted"] = opened.dt.hour
         if "day_of_week" not in work.columns:
-            work["day_of_week"] = opened.dt.dayofweek
+            work["day_of_week"] = opened.dt.day_of_week
 
     if TARGET not in work.columns:
         raise ValueError(
