@@ -129,3 +129,9 @@ def test_streamlit_dashboard_renders_without_exceptions():
     app_path = Path(__file__).resolve().parents[1] / "app.py"
     app = AppTest.from_file(str(app_path), default_timeout=60).run()
     assert len(app.exception) == 0
+    assert len(app.button) >= 1
+
+    # Exercise the main prediction flow, not just the initial dashboard render.
+    app.button[0].click().run()
+    assert len(app.exception) == 0
+    assert any("Your estimate" in item.value for item in app.markdown)
