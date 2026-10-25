@@ -12,6 +12,13 @@ st.set_page_config(
     layout="wide",
 )
 
+
+@st.cache_data(show_spinner="Training and evaluating models...")
+def cached_evaluation(data: pd.DataFrame):
+    """Avoid retraining the same CSV on every Streamlit interaction."""
+    return evaluate_models(data)
+
+
 st.markdown(
     """
     <style>
@@ -185,7 +192,7 @@ try:
     source_label = "Uploaded CSV" if uploaded is not None else "Synthetic demonstration dataset"
     raw = validate_dataset(source_data)
     rows_excluded = source_rows - len(raw)
-    metrics, models, predictions, calibration_residuals = evaluate_models(source_data)
+    metrics, models, predictions, calibration_residuals = cached_evaluation(source_data)
 except Exception as exc:
     st.error(f"Could not process the dataset: {exc}")
     st.stop()
