@@ -1,0 +1,1 @@
+No real or personal data is committed. The app generates synthetic demonstration data in memory. Before using real data, verify source, target definition, license, permissions, privacy, and quality. Local CSV and Parquet files are ignored by Git.
