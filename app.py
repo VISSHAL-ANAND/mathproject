@@ -228,6 +228,47 @@ m3.metric("90th percentile", f"{summary['q90']:.1f} min")
 m4.metric("95% CI for mean", f"{summary['mean_ci_low']:.1f}–{summary['mean_ci_high']:.1f} min")
 
 st.divider()
+st.subheader("Where are response times higher?")
+st.markdown(
+    '<div class="section-note">Breakdowns help teams investigate patterns. A difference between groups does not prove that the group caused the delay.</div>',
+    unsafe_allow_html=True,
+)
+insight_columns = st.columns(2)
+for col, group_column, title in [
+    (insight_columns[0], "priority", "By priority"),
+    (insight_columns[1], "category", "By issue category / queue"),
+]:
+    with col:
+        st.markdown(f"**{title}**")
+        if group_column in raw.columns:
+            grouped = raw.groupby(group_column, dropna=False)[TARGET].agg(
+                Tickets="size",
+                Median_wait_min="median",
+                P90_wait_min=lambda values: values.quantile(0.90),
+            )
+            grouped = grouped.sort_values("Median_wait_min", ascending=False)
+            grouped = grouped.rename(columns={
+                "Median_wait_min": "Median wait (min)",
+                "P90_wait_min": "90th percentile (min)",
+            })
+            st.dataframe(grouped, use_container_width=True)
+            st.bar_chart(grouped[["Median wait (min)"]])
+        else:
+            st.caption(f"The uploaded dataset does not include a {group_column} column.")
+
+if "__opened_at" in raw.columns and raw["__opened_at"].notna().all():
+    daily = raw.assign(_opened_date=raw["__opened_at"].dt.date).groupby("_opened_date")[TARGET].agg(
+        Tickets="size",
+        Median_wait_min="median",
+    )
+    st.markdown("**Median response time over time**")
+    st.markdown(
+        '<div class="section-note">Available when valid opening timestamps are present. Day-to-day changes may reflect volume or data composition.</div>',
+        unsafe_allow_html=True,
+    )
+    st.line_chart(daily[["Median_wait_min"]].rename(columns={"Median_wait_min": "Median wait (min)"}))
+
+st.divider()
 st.subheader("Compare the regression models")
 st.markdown(
     '<div class="section-note">The model is selected using validation MAE. Test metrics are kept separate for final evaluation; lower test MAE and RMSE indicate smaller errors.</div>',
@@ -363,11 +404,29 @@ with st.form("prediction_form"):
         list(models.keys()),
         index=list(models.keys()).index(best_name),
     )
+    backlog_reduction = 0
+    if "backlog" in features:
+        backlog_reduction = st.select_slider(
+            "What-if: backlog reduction (model scenario)",
+            options=[0, 10, 25, 50],
+            value=25,
+            format_func=lambda value: "No change" if value == 0 else f"{value}% lower",
+        )
     submitted = st.form_submit_button("Estimate wait and deadline risk", type="primary")
 
 if submitted:
     input_frame = pd.DataFrame([values], columns=features)
     estimate = max(0.0, float(models[model_name].predict(input_frame)[0]))
+    scenario_estimate = None
+    if "backlog" in features and backlog_reduction > 0:
+        scenario_frame = input_frame.copy()
+        current_backlog = float(scenario_frame.at[0, "backlog"])
+        scenario_frame.at[0, "backlog"] = max(
+            0.0, current_backlog * (1.0 - backlog_reduction / 100.0)
+        )
+        scenario_estimate = max(
+            0.0, float(models[model_name].predict(scenario_frame)[0])
+        )
     residuals = calibration_residuals[model_name]
     interval_error = None
     try:
@@ -380,17 +439,29 @@ if submitted:
     breach_probability = probability_sla_breach(estimate, residuals, sla_minutes)
 
     st.markdown("#### Your estimate")
-    p1, p2, p3 = st.columns(3)
-    p1.metric("Estimated first response", f"{estimate:.1f} min")
-    p2.metric(
+    metric_columns = st.columns(4 if scenario_estimate is not None else 3)
+    metric_columns[0].metric("Estimated first response", f"{estimate:.1f} min")
+    metric_columns[1].metric(
         f"{interval_coverage:.0%} prediction interval",
         f"{lower:.1f}–{upper:.1f} min" if lower is not None else "More data needed",
     )
-    p3.metric(
+    metric_columns[2].metric(
         "Estimated deadline-breach risk",
         f"{breach_probability:.0%}",
         help=f"Empirical estimate of exceeding {sla_minutes} minutes from calibration residuals.",
     )
+    if scenario_estimate is not None:
+        change = scenario_estimate - estimate
+        metric_columns[3].metric(
+            f"If backlog were {backlog_reduction}% lower",
+            f"{scenario_estimate:.1f} min",
+            delta=f"{change:+.1f} min",
+            delta_color="inverse",
+        )
+        st.caption(
+            "Backlog scenario is a model-based what-if with other inputs held constant. "
+            "It reflects learned associations, not proof that reducing backlog will cause this change."
+        )
     if interval_error:
         st.info(interval_error)
 
