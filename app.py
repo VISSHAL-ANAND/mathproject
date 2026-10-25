@@ -6,9 +6,9 @@ from src.data import CATEGORICAL_FEATURES, FEATURE_COLUMNS, TARGET, make_demo_da
 from src.evaluate import evaluate_models
 from src.statistics import conformal_prediction_interval, probability_sla_breach, response_time_summary
 
-st.set_page_config(page_title="CampusHelp Response Intelligence", page_icon="📊", layout="wide")
-st.title("CampusHelp Response Intelligence")
-st.caption("A student-support decision aid using regression, probability, and statistics.")
+st.set_page_config(page_title="Response Time Prediction Using Regression Models", page_icon="📊", layout="wide")
+st.title("Response Time Prediction Using Regression Models")
+st.caption("CampusHelp Response Intelligence • a student-support decision aid using regression, probability, and statistics.")
 st.info("Human problem: students often report a campus issue without knowing how long help will take or whether the service deadline will be missed.")
 
 with st.sidebar:
