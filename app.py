@@ -4,6 +4,13 @@ import pandas as pd
 import streamlit as st
 from src.data import CATEGORICAL_FEATURES, FEATURE_COLUMNS, TARGET, make_demo_data, validate_dataset
 from src.evaluate import evaluate_models
+from src.maths import (
+    compare_with_sklearn,
+    conformal_details,
+    error_shape,
+    formula_mean_ci,
+    normal_breach_probability,
+)
 from src.statistics import conformal_prediction_interval, probability_sla_breach, response_time_summary
 
 st.set_page_config(
@@ -34,7 +41,7 @@ st.markdown(
       header[data-testid="stHeader"] { background: #FFFFFF; }
       .block-container {
         max-width: 1240px;
-        padding-top: 1.6rem;
+        padding-top: 4.5rem;
         padding-bottom: 3rem;
       }
       h1, h2, h3 { color: var(--campus-blue-dark); letter-spacing: -0.02em; }
@@ -138,7 +145,7 @@ st.markdown(
         margin-top: -0.25rem;
       }
       @media (max-width: 700px) {
-        .block-container { padding-top: 1rem; }
+        .block-container { padding-top: 4rem; }
         .hero { padding: 20px 18px; }
         .hero-title { font-size: 1.8rem; }
       }
@@ -507,3 +514,166 @@ if submitted:
         "Use this result as decision support, not an automatic priority rule. "
         "Interval coverage and risk estimates need real-world validation before operational use."
     )
+
+
+# ----------------------------------------------------------------------------
+# The maths behind it. Self-contained: to remove it, delete everything from this
+# comment to the end of the file, plus the "from src.maths import ..." lines at the top.
+# ----------------------------------------------------------------------------
+def render_maths_section(
+    raw, summary, predictions, calibration_residuals, sla_minutes, interval_coverage,
+    example_model, example_prediction, used_submitted,
+):
+    st.divider()
+    st.subheader("The maths behind it")
+    st.markdown(
+        '<div class="section-note">Each part below is recalculated from formulas and checked against what the app actually uses.</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        """
+        <style>
+          div[data-testid="stExpander"] details summary {
+            background: #EAF3FF;
+            border-radius: 10px;
+          }
+          div[data-testid="stExpander"] details summary,
+          div[data-testid="stExpander"] details summary p,
+          div[data-testid="stExpander"] details summary span {
+            color: #153B73 !important;
+            font-weight: 650;
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    example_residuals = calibration_residuals[example_model]
+    check = compare_with_sklearn(raw)
+
+    with st.expander("1. Least squares: where the regression line comes from", expanded=True):
+        st.markdown(
+            "Think of hanging a stick through a cloud of dots. For any stick position, add up how far each dot "
+            "is from it, squaring the gaps so ups and downs cannot cancel. That total miss forms a bowl-shaped "
+            "valley, and the best stick sits at the bottom, where the ground is flat (slope = 0)."
+        )
+        st.latex(r"S(\beta)=\sum_i\left(y_i-\hat y_i\right)^2")
+        st.latex(
+            r"\frac{\partial S}{\partial \beta}=0\;\Rightarrow\;X^{T}X\,\beta=X^{T}y"
+            r"\;\Rightarrow\;\hat\beta=\left(X^{T}X\right)^{-1}X^{T}y"
+        )
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Rows used", f"{check['n_rows']:,}")
+        c2.metric("Input columns (after one-hot)", f"{check['n_columns']}")
+        c3.metric("Gap: formula vs scikit-learn", f"{check['ols_max_diff']:.1e} min")
+        st.caption(
+            "The formula was solved with NumPy on the same data. The predictions agree with scikit-learn's "
+            "Linear Regression to rounding error, so the library is doing exactly this calculation."
+        )
+
+    with st.expander("2. Ridge: the same line with a leash"):
+        st.markdown(
+            "Ridge adds a penalty for large coefficients, like a leash that stops any one input from pulling "
+            "the line too hard. The only change to the maths is adding the leash strength to the diagonal."
+        )
+        st.latex(r"\hat\beta_{ridge}=\left(X^{T}X+\alpha I\right)^{-1}X^{T}y")
+        r1, r2, r3 = st.columns(3)
+        r1.metric("Leash strength (alpha)", f"{check['alpha']:.1f}")
+        r2.metric(
+            "Size of coefficients: Linear → Ridge",
+            f"{check['ols_coef_norm']:.3f} → {check['ridge_coef_norm']:.3f}",
+        )
+        r3.metric("Gap: formula vs scikit-learn", f"{check['ridge_max_diff']:.1e} min")
+        st.caption(
+            f"With {check['n_rows']:,} rows and only a few inputs, the leash barely tightens, so Ridge and Linear "
+            "give almost the same results. That is why their rows in the comparison table are nearly identical."
+        )
+
+    with st.expander("3. Confidence interval vs prediction interval"):
+        formula_low, formula_high = formula_mean_ci(raw[TARGET])
+        st.markdown(
+            "A **confidence interval** guesses the *average* wait of all tickets. A **prediction interval** guesses "
+            "the wait of *one new ticket*, which is far more variable, so it is much wider. "
+            "(Like guessing a class's average height vs guessing the next student through the door.)"
+        )
+        st.latex(r"\bar y\;\pm\;1.96\,\frac{s}{\sqrt{n}}")
+        st.markdown(
+            f"- Textbook formula: **{formula_low:.1f}–{formula_high:.1f} min**, using s = {summary['std_dev']:.1f} and n = {summary['count']:,}\n"
+            f"- The app's bootstrap (re-sampling the data 1,000 times): **{summary['mean_ci_low']:.1f}–{summary['mean_ci_high']:.1f} min**\n"
+            "- Both agree, so the interval is trustworthy."
+        )
+        try:
+            details = conformal_details(example_residuals, interval_coverage)
+        except ValueError as exc:
+            st.info(str(exc))
+        else:
+            st.markdown(
+                f"**Prediction interval (split-conformal).** Take the {details['n']} calibration errors, ignore their signs, "
+                f"sort them, and pick number {details['rank']} (the {interval_coverage:.0%} mark). That error size, "
+                f"**{details['radius']:.1f} min**, becomes the plus/minus around the prediction."
+            )
+            st.latex(
+                r"\text{interval}=\hat y\pm q,\qquad q=\text{the }\lceil (n+1)\cdot\text{coverage}\rceil\text{-th smallest }|\text{error}|"
+            )
+            st.caption(
+                f"Example: a prediction of {example_prediction:.1f} min gives about "
+                f"{max(0.0, example_prediction - details['radius']):.1f}–{example_prediction + details['radius']:.1f} min. "
+                "Compare that width with the mean's interval above: one ticket is far less certain than the average."
+            )
+
+    with st.expander("4. Deadline risk"):
+        empirical = probability_sla_breach(example_prediction, example_residuals, sla_minutes)
+        bell = normal_breach_probability(example_prediction, example_residuals, sla_minutes)
+        st.markdown(
+            "**What the app does:** add every past calibration error to the prediction and count how many "
+            f"outcomes land beyond the {sla_minutes} minute deadline. That share is the risk."
+        )
+        st.markdown(
+            "**The maths version:** if the errors are bell-shaped with spread σ, the same risk comes from the "
+            "normal curve (z-score = how many σ the deadline is above the prediction)."
+        )
+        st.latex(r"P(\text{breach})=P\!\left(Z>\frac{D-\hat y}{\sigma}\right)")
+        d1, d2, d3 = st.columns(3)
+        d1.metric("Prediction used", f"{example_prediction:.1f} min")
+        d2.metric("Risk: counting (app)", f"{empirical:.1%}")
+        d3.metric("Risk: normal curve", f"{bell:.1%}")
+        gap = abs(empirical - bell)
+        st.caption(
+            (
+                "The two methods give close answers, which is a good sign. "
+                if gap < 0.03
+                else f"The methods differ by {gap * 100:.1f} points: counting uses only {len(example_residuals)} "
+                "calibration errors, so it is lumpier, while the normal curve smooths them out. "
+            )
+            + (
+                "This uses your submitted estimate."
+                if used_submitted
+                else "Submit an estimate above to use your own ticket; for now it uses the dataset's average wait."
+            )
+        )
+
+    with st.expander("5. Are the errors bell-shaped?"):
+        shape = error_shape(predictions["Residual (actual - predicted)"])
+        st.markdown(
+            "RMSE punishes big misses more than MAE does. For perfectly bell-shaped errors the ratio RMSE ÷ MAE "
+            "is always √(π/2) ≈ 1.2533, so the ratio is a quick bell-shape test."
+        )
+        s1, s2, s3 = st.columns(3)
+        s1.metric("MAE", f"{shape['mae']:.2f} min")
+        s2.metric("RMSE", f"{shape['rmse']:.2f} min")
+        s3.metric("RMSE ÷ MAE", f"{shape['ratio']:.3f}", help=f"Bell-shaped target: {shape['bell_ratio']:.4f}")
+        st.caption(
+            "A ratio this close to 1.2533 fits the bell-shaped histogram above, "
+            "which supports the normal-curve risk calculation."
+        )
+
+
+try:
+    render_maths_section(
+        raw, summary, predictions, calibration_residuals, sla_minutes, interval_coverage,
+        model_name if submitted else best_name,
+        estimate if submitted else summary["mean"],
+        submitted,
+    )
+except Exception as exc:  # the maths section must never break the main dashboard
+    st.info(f"The maths section could not be shown for this dataset: {exc}")
