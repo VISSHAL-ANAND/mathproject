@@ -159,6 +159,10 @@ with st.sidebar:
     st.header("Data & risk settings")
     uploaded = st.file_uploader("Upload support-ticket CSV", type=["csv"])
     st.caption("No upload? The app uses synthetic demo data.")
+    st.markdown(
+        "[Try the optional CC0 sample CSV](https://datanemics.com/datasets/data/support-tickets.csv)"
+    )
+    st.caption("That sample is also synthetic. Unanswered tickets have no first-response time and are excluded; this can bias results.")
     st.divider()
     st.subheader("Service deadline")
     sla_minutes = st.number_input(
@@ -176,10 +180,12 @@ with st.sidebar:
     )
 
 try:
-    raw = pd.read_csv(uploaded) if uploaded is not None else make_demo_data()
+    source_data = pd.read_csv(uploaded) if uploaded is not None else make_demo_data()
+    source_rows = len(source_data)
     source_label = "Uploaded CSV" if uploaded is not None else "Synthetic demonstration dataset"
-    raw = validate_dataset(raw)
-    metrics, models, predictions, calibration_residuals = evaluate_models(raw)
+    raw = validate_dataset(source_data)
+    rows_excluded = source_rows - len(raw)
+    metrics, models, predictions, calibration_residuals = evaluate_models(source_data)
 except Exception as exc:
     st.error(f"Could not process the dataset: {exc}")
     st.stop()
@@ -194,7 +200,20 @@ else:
         "Confirm that the target really measures time to first response."
     )
 
-st.caption(f"**Data source:** {source_label}  ·  **Usable rows:** {len(raw):,}")
+st.caption(
+    f"**Data source:** {source_label}  ·  **Rows received:** {source_rows:,}  ·  "
+    f"**Usable rows:** {len(raw):,}"
+)
+if rows_excluded > 0:
+    st.warning(
+        f"{rows_excluded:,} row(s) were excluded because the first-response target was missing or invalid. "
+        "If these are unanswered tickets, this dashboard describes answered tickets only and may understate waits."
+    )
+split_method = metrics.attrs.get("split_method", "random")
+if split_method == "chronological":
+    st.caption("Evaluation method: chronological split — earlier tickets are used before later test tickets.")
+else:
+    st.caption("Evaluation method: random split — use a timestamp column for a more realistic future-period evaluation.")
 summary = response_time_summary(raw)
 
 st.subheader("Response-time overview")
@@ -211,7 +230,7 @@ m4.metric("95% CI for mean", f"{summary['mean_ci_low']:.1f}–{summary['mean_ci_
 st.divider()
 st.subheader("Compare the regression models")
 st.markdown(
-    '<div class="section-note">All models are evaluated against the same held-out test rows. Lower MAE and RMSE indicate smaller errors.</div>',
+    '<div class="section-note">The model is selected using validation MAE. Test metrics are kept separate for final evaluation; lower test MAE and RMSE indicate smaller errors.</div>',
     unsafe_allow_html=True,
 )
 st.dataframe(metrics, use_container_width=True, hide_index=True)
@@ -222,14 +241,14 @@ x_positions = list(range(len(plot_metrics)))
 bar_width = 0.34
 ax.bar(
     [x - bar_width / 2 for x in x_positions],
-    plot_metrics["MAE (minutes)"],
+    plot_metrics["MAE (test minutes)"],
     width=bar_width,
     label="MAE",
     color="#2563EB",
 )
 ax.bar(
     [x + bar_width / 2 for x in x_positions],
-    plot_metrics["RMSE (minutes)"],
+    plot_metrics["RMSE (test minutes)"],
     width=bar_width,
     label="RMSE",
     color="#93C5FD",
@@ -249,7 +268,7 @@ fig.tight_layout()
 st.pyplot(fig, use_container_width=True)
 plt.close(fig)
 
-best_name = metrics.iloc[0]["Model"]
+best_name = metrics.attrs.get("selected_model", metrics.iloc[0]["Model"])
 best_column = f"{best_name} prediction"
 left, right = st.columns(2)
 with left:
