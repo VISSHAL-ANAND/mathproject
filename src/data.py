@@ -55,8 +55,8 @@ def validate_dataset(data: pd.DataFrame) -> pd.DataFrame:
             result[column] = result[column].where(result[column].notna(), np.nan).astype("object")
     result = result.replace([np.inf, -np.inf], np.nan).dropna(subset=[TARGET])
     result = result[result[TARGET] >= 0]
-    if len(result) < 30:
-        raise ValueError("At least 30 usable rows with non-negative targets are required.")
+    if len(result) < 50:
+        raise ValueError("At least 50 usable rows with non-negative targets are required for calibration and evaluation.")
     if result[features].isna().all(axis=1).all():
         raise ValueError("All predictor values are missing.")
     return result.reset_index(drop=True)
