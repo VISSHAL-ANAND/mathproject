@@ -85,7 +85,9 @@ The model estimates response time from the information available when the ticket
 
 A simple linear model can be written as:
 
-`\hat{y} = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \cdots + \beta_p x_p`
+$
+\\hat{y} = \\beta_0 + \\beta_1 x_1 + \\beta_2 x_2 + \\cdots + \\beta_p x_p
+$
 
 where `\hat{y}` is the predicted response time and the `x` values are the available features.
 
