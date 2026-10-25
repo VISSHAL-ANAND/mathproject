@@ -1,27 +1,29 @@
 # Project State
 
-## Current direction
-CampusHelp Response Intelligence is a human-centered support-ticket project. It predicts time to first response and demonstrates regression, descriptive statistics, bootstrap confidence intervals, split-conformal prediction intervals, and empirical SLA-breach probability.
+## Current product
+CampusHelp Response Intelligence predicts first-response time and demonstrates regression, descriptive statistics, bootstrap confidence intervals, split-conformal prediction intervals, and empirical deadline-risk estimates.
 
 ## Implemented
-- Streamlit dashboard and interactive prediction form.
-- Linear Regression, Ridge Regression, and Random Forest.
-- MAE, RMSE, R², residual and actual-vs-predicted plots.
-- Mean, median, standard deviation, 90th percentile, and bootstrap 95% confidence interval for the mean.
-- Separate 60/20/20 train/calibration/test design.
-- Calibration-residual prediction intervals and estimated service-deadline breach probability.
-- Automated tests and GitHub Actions workflow.
-- README and DOX documentation updated to describe limitations and data integrity.
+- White-and-blue Streamlit dashboard and prediction form.
+- Linear Regression, Ridge Regression, Random Forest, and training-mean baseline.
+- Validation-based model selection, with the final test set kept out of model selection.
+- Approximate 60/10/10/20 train/validation/calibration/test split.
+- Chronological split when valid `opened_at` timestamps exist; reproducible random split otherwise.
+- CSV aliases for `first_response_min`, `queue`, and `opened_at`.
+- Disclosure of rows excluded for missing/invalid response targets.
+- Descriptive statistics, bootstrap CI for the mean, prediction intervals, and empirical deadline-risk estimates.
+- More explicit errors when requested conformal coverage needs more calibration rows.
+- README, DOX documentation, CI syntax check, and automated tests.
 
 ## Data integrity
-The built-in dataset remains synthetic. It does not establish real-world predictive accuracy. A suitable, license-checked dataset with a defensible first-response target has not yet been selected.
+The built-in dataset and optional public sample are synthetic. They are useful for development and demonstration only. A validated real campus-support dataset has not been obtained; do not claim real-world performance.
 
-## Verification status
-GitHub Actions runs were still in progress at the last check. Local test execution was previously blocked because this environment could not resolve GitHub. Do not claim the tests pass until the latest workflow run completes successfully.
+## Verification
+Run GitHub Actions on the current main-branch commit and record the final result. The automated suite does not replace a browser-based end-to-end review or real-data validation.
 
 ## Next steps
-1. Confirm the latest CI run and fix any failures.
-2. Test the app and training CLI in a working Python environment.
-3. Find and verify a suitable dataset, then document its source, license, and target semantics.
-4. Run a chronological or otherwise leakage-aware real-data experiment and report honest results.
-5. Add subgroup error checks and a final college report.
+1. Confirm CI on the latest commit and fix any failures.
+2. Launch and test the Streamlit UI end-to-end.
+3. Validate on authorized, appropriately documented real data when available.
+4. Review errors by priority/category and assess performance on a later time period.
+5. Add queue-capacity what-if simulation only with clear non-causal disclaimers.
