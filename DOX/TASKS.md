@@ -1,18 +1,22 @@
 # Tasks
 
-## Current implementation
-- [x] Reframe the app as CampusHelp Response Intelligence.
-- [x] Add descriptive statistics and a bootstrap confidence interval for the mean.
-- [x] Separate training, calibration, and test data.
-- [x] Add calibration-based prediction intervals and empirical SLA-breach estimates.
-- [x] Add tests for the statistical functions.
-- [x] Update README and research/product documentation.
+## Implemented
+- [x] Human-centered CampusHelp scope and white/blue dashboard.
+- [x] Descriptive statistics and bootstrap confidence interval for the mean.
+- [x] Separate training, validation, calibration, and test data.
+- [x] Select the model using validation MAE, never the test score.
+- [x] Compare with a training-mean baseline.
+- [x] Use chronological evaluation when valid `opened_at` timestamps exist.
+- [x] Normalize common CSV aliases and disclose rows omitted for invalid/missing targets.
+- [x] Add prediction intervals and empirical deadline-risk estimates.
+- [x] Reject unsupported finite conformal-interval coverage when calibration data is too small.
+- [x] Document the optional synthetic CC0 CSV and its limitations.
 
 ## Remaining
-- [ ] Wait for the latest GitHub Actions workflow run and fix failures.
-- [ ] Run the app and CLI end-to-end in a working environment.
-- [ ] Find a suitable dataset; verify first-response definition, license, privacy, and missing-ticket handling.
-- [ ] Run a documented experiment on suitable data, ideally with a time-based test split.
-- [ ] Compare with a simple baseline and inspect error by priority/category.
-- [ ] Prepare the final report, equations, limitations, and viva notes.
-- [ ] Consider deployment only after data and model limitations are clearly presented.
+- [ ] Confirm CI on the latest commit.
+- [ ] Browser-test the dashboard and prediction flow.
+- [ ] Validate on authorized, representative real campus/help-desk data.
+- [ ] Review performance by priority/category and test on a later time period.
+- [ ] Investigate unanswered tickets explicitly before reporting overall waiting-time performance.
+- [ ] Add queue/backlog what-if simulation after its assumptions are reviewed.
+- [ ] Prepare the final academic report and viva notes based on actual, documented results.
