@@ -1,4 +1,4 @@
-# CampusHelp Response Intelligence
+# Response Time Prediction Using Regression Models — CampusHelp Response Intelligence
 
 A statistics and machine-learning college project aimed at a real human problem: students report campus support issues but often do not know how long help will take or whether the service deadline may be missed.
 
