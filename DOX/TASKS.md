@@ -1,13 +1,18 @@
 # Tasks
 
-## Next task
-1. Install requirements in Python 3.10–3.13 and run pytest -q.
-2. Run python -m src.train and inspect metrics.
-3. Launch streamlit run app.py and test prediction flow.
+## Current implementation
+- [x] Reframe the app as CampusHelp Response Intelligence.
+- [x] Add descriptive statistics and a bootstrap confidence interval for the mean.
+- [x] Separate training, calibration, and test data.
+- [x] Add calibration-based prediction intervals and empirical SLA-breach estimates.
+- [x] Add tests for the statistical functions.
+- [x] Update README and research/product documentation.
 
 ## Remaining
-- [ ] Find a suitable real dataset and verify its license and target definition.
-- [ ] Run and document an experiment on real data.
-- [ ] Add actual results only after running the experiment.
-- [ ] Review usability, input validation, and deployment.
-- [ ] Prepare final report with equations, methods, limitations, and citations.
+- [ ] Wait for the latest GitHub Actions workflow run and fix failures.
+- [ ] Run the app and CLI end-to-end in a working environment.
+- [ ] Find a suitable dataset; verify first-response definition, license, privacy, and missing-ticket handling.
+- [ ] Run a documented experiment on suitable data, ideally with a time-based test split.
+- [ ] Compare with a simple baseline and inspect error by priority/category.
+- [ ] Prepare the final report, equations, limitations, and viva notes.
+- [ ] Consider deployment only after data and model limitations are clearly presented.
