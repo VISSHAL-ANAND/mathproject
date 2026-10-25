@@ -36,11 +36,11 @@ def test_evaluation_returns_models_metrics_and_calibration_data():
 
 
 def test_negative_targets_are_removed():
-    frame = make_demo_data(50)
+    frame = make_demo_data(60)
     frame.loc[0, TARGET] = -1
     clean = validate_dataset(frame)
     assert (clean[TARGET] >= 0).all()
-    assert len(clean) == 49
+    assert len(clean) == 59
 
 
 def test_statistical_summary_has_bootstrap_confidence_interval():
