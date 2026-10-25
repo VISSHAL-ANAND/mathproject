@@ -1,38 +1,41 @@
 # Product Requirements
 
 ## Product vision
-CampusHelp Response Intelligence helps students and campus support teams make better decisions when a request is waiting for a first response. The system estimates waiting time and deadline risk; it does not automatically deny service or make final priority decisions.
+CampusHelp Response Intelligence helps students and campus support teams understand likely first-response waiting time, uncertainty, and potential service-deadline risk. It supports human decisions and does not automatically deny or deprioritize service.
 
 ## Human problem
-Students reporting Wi-Fi, account, hostel-maintenance, or facility issues may have no useful estimate of when someone will respond. Support teams also need a transparent way to identify requests that may miss a service deadline.
+People reporting Wi-Fi, account, library, hostel-maintenance, or other support problems often do not know how long they may wait or whether a response deadline may be missed.
 
 ## Functional requirements
-- Load a synthetic demonstration dataset or a user-supplied CSV.
-- Validate the target and supported predictor columns.
-- Train and compare Linear Regression, Ridge Regression, and Random Forest.
-- Report held-out MAE, RMSE, and R².
-- Show mean, median, standard deviation, 90th percentile, and a bootstrap 95% confidence interval for the mean.
-- Estimate an individual prediction interval from a separate calibration split.
-- Estimate the empirical probability of exceeding a user-selected SLA deadline.
-- Visualize actual-vs-predicted values and residuals.
-- Provide an interactive prediction form and a CLI training report.
-- Clearly distinguish synthetic demo results from real evidence.
+- Generate a reproducible synthetic demonstration dataset or accept a user-supplied ticket CSV.
+- Normalize supported aliases: `first_response_min` for the target, `queue` for category, and `opened_at` for hour/day features and chronological evaluation.
+- Count and disclose rows excluded for missing or invalid targets.
+- Compare Linear Regression, Ridge Regression, and Random Forest against a training-mean baseline.
+- Select the highlighted model with validation MAE, not the final test score.
+- Show test MAE, RMSE, and R² for final evaluation.
+- Show mean, median, standard deviation, 90th percentile, and a bootstrap 95% confidence interval for the dataset mean.
+- Use a separate calibration split for split-conformal prediction intervals and empirical deadline-risk estimates.
+- Explain when the requested prediction-interval coverage needs more calibration rows.
+- Visualize model errors and support an interactive single-request prediction.
+- Clearly separate synthetic demo metrics from real-world evidence.
 
 ## Statistical design
-- Split data into approximately 60% train, 20% calibration, and 20% test.
-- Fit preprocessing and models on training data only.
-- Use calibration residuals for split-conformal interval width and empirical SLA breach probability.
-- Keep the final test set separate from calibration.
-- Explain that interval coverage and probability reliability depend on exchangeability, sufficient representative data, and stable future conditions.
+- Default split is approximately 60% training, 10% validation, 10% calibration, and 20% test.
+- Use a chronological split when every usable row has a valid `opened_at` timestamp; otherwise use a reproducible random split.
+- Select a model with validation MAE, then refit candidate models on training + validation data.
+- Use calibration residuals only for interval/risk estimation and keep test rows out of model selection and calibration.
+- Include a training-mean baseline so complex models must demonstrate measurable value.
+- Explain that prediction intervals and risk estimates rely on calibration data representing future cases; time drift can weaken these assumptions.
+- Require enough data for the chosen interval coverage; a finite 95% split-conformal interval needs at least 19 calibration residuals.
 
-## Safety and fairness
-- A risk score is decision support, not an automatic service-denial rule.
-- Avoid sensitive personal attributes.
-- Before deployment, check performance across relevant request categories and priority groups, and investigate systematic underprediction for urgent requests.
-- Never claim real-world accuracy from synthetic data.
+## Data and safety
+- Use only predictors known when the prediction is made.
+- If no first-response time exists, a row is not a zero-minute response; it is excluded from regression, and this exclusion must be disclosed.
+- Avoid uploading personal or confidential data.
+- Review error by priority and issue category before any operational use.
+- Never claim real-world accuracy using synthetic data.
 
 ## Acceptance criteria
-- The app runs from documented setup instructions.
-- Automated tests cover generation, validation, evaluation, statistics, intervals, and SLA probability.
-- The app shows model metrics, descriptive statistics, interval estimates, and deadline-risk estimates.
-- Research claims are limited to evidence from a documented, suitable dataset.
+- Automated tests cover data generation, CSV aliases, target validation, baseline/model selection, split strategy, statistics, prediction intervals, and deadline-risk estimates.
+- CI checks Python syntax and runs tests on supported Python versions.
+- UI displays data-quality exclusions, split method, model metrics, interval limitations, and synthetic-data warnings.
