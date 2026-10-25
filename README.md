@@ -36,6 +36,7 @@ The project uses established statistical methods; it does not claim to invent a 
 ## Features
 
 - Compare **Linear Regression**, **Ridge Regression**, and **Random Forest Regression** against a **training-mean baseline**.
+- Explain whether the selected regression model improves on that simple baseline using validation data.
 - Report **MAE**, **RMSE**, and **R²** on held-out test data.
 - Summarize response times using the mean, median, standard deviation, and 90th percentile.
 - Calculate a bootstrap 95% confidence interval for the dataset mean.
@@ -52,7 +53,7 @@ The project uses established statistical methods; it does not claim to invent a 
 
 ### Regression
 
-The models estimate response time from features known when the request is submitted, such as priority, category, channel, hour, backlog, and agent experience.
+The models estimate response time from features available at the moment the prediction is made, such as priority, category, channel, hour, backlog, and—only when already known—agent experience.
 
 A multiple linear regression model can be written as:
 
