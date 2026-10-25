@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
-from src.data import CATEGORICAL_FEATURES, FEATURE_COLUMNS, TARGET, make_demo_data
+from src.data import CATEGORICAL_FEATURES, FEATURE_COLUMNS, TARGET, make_demo_data, validate_dataset
 from src.evaluate import evaluate_models
 from src.statistics import conformal_prediction_interval, probability_sla_breach, response_time_summary
 
@@ -21,6 +21,7 @@ with st.sidebar:
 try:
     raw = pd.read_csv(uploaded) if uploaded is not None else make_demo_data()
     source_label = "Uploaded CSV" if uploaded is not None else "Synthetic demonstration dataset"
+    raw = validate_dataset(raw)
     metrics, models, predictions, calibration_residuals = evaluate_models(raw)
 except Exception as exc:
     st.error(f"Could not process dataset: {exc}")
