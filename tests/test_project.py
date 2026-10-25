@@ -113,5 +113,10 @@ def test_sla_breach_probability_is_empirical():
 
 
 def test_uncertainty_functions_require_calibration_data():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="At least 10 calibration rows"):
         conformal_prediction_interval(20, [1, 2, 3], 0.9)
+
+
+def test_high_coverage_interval_requires_sufficient_calibration_rows():
+    with pytest.raises(ValueError, match="At least 19 calibration rows"):
+        conformal_prediction_interval(20, np.linspace(-5, 5, 10), 0.95)
