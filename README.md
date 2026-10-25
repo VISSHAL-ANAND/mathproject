@@ -35,7 +35,7 @@ The default evaluation uses approximately 60% training data, 20% calibration dat
 
 ## CSV format
 
-Required target: `response_time_minutes`, a numeric, non-negative duration until the **first response** (not resolution). Supported predictors: `priority`, `category`, `channel`, `hour_submitted`, `day_of_week`, `backlog`, `agent_experience_years`. At least 30 usable rows are required; 50+ is preferable for the app, and more representative data is better for research. Avoid personal information and do not upload confidential records.
+Required target: `response_time_minutes`, a numeric, non-negative duration until the **first response** (not resolution). Supported predictors: `priority`, `category`, `channel`, `hour_submitted`, `day_of_week`, `backlog`, `agent_experience_years`. At least 50 usable rows are required for a minimally useful calibration split; larger and representative datasets are strongly preferred for research. Avoid personal information and do not upload confidential records.
 
 ## Research references
 
