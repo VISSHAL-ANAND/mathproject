@@ -35,7 +35,7 @@ The project uses established statistical methods; it does not claim to invent a 
 
 ## Features
 
-- Compare **Linear Regression**, **Ridge Regression**, and **Random Forest Regression**.
+- Compare **Linear Regression**, **Ridge Regression**, and **Random Forest Regression** against a **training-mean baseline**.
 - Report **MAE**, **RMSE**, and **R²** on held-out test data.
 - Summarize response times using the mean, median, standard deviation, and 90th percentile.
 - Calculate a bootstrap 95% confidence interval for the dataset mean.
@@ -43,6 +43,7 @@ The project uses established statistical methods; it does not claim to invent a 
 - Estimate the empirical chance of exceeding a user-selected response deadline.
 - Explore actual-versus-predicted and prediction-error charts.
 - Upload a CSV or use reproducible synthetic demonstration data.
+- Use chronological evaluation when usable `opened_at` timestamps are present; otherwise use a reproducible random split.
 - Run automated tests through GitHub Actions.
 
 ## Statistics and mathematics
@@ -69,7 +70,7 @@ The dashboard reports the mean, median, sample standard deviation, and 90th perc
 
 ### Prediction uncertainty and deadline probability
 
-The default evaluation split is approximately **60% training, 20% calibration, and 20% testing**.
+The default split is approximately **60% training, 10% validation, 10% calibration, and 20% testing**. The model is selected using validation MAE, then refit on training + validation data. Calibration rows estimate prediction uncertainty, while the final test rows are held out for final metrics. This avoids choosing the winning model based on the test score.
 
 - A **split-conformal prediction interval** uses absolute errors from the calibration data to estimate a range around a prediction.
 - The **deadline-risk estimate** applies the calibration error distribution to the prediction and measures the proportion of estimated outcomes that exceed the chosen deadline.
@@ -90,15 +91,15 @@ A negative R² is possible and can indicate that the model performs worse than t
 
 1. **Load data** from the built-in demo dataset or a support-ticket CSV.
 2. **Validate** the target and supported input columns.
-3. **Split** the data into training, calibration, and test sets.
-4. **Train and compare** the three regression models.
-5. **Evaluate** model errors on the held-out test set.
-6. **Estimate uncertainty and deadline risk** using calibration errors, kept separate from the final test set.
+3. **Split** into training, validation, calibration, and test sets.
+4. **Select a model** using validation MAE, including comparison with a training-mean baseline.
+5. **Refit and evaluate** models; reserve the final test rows for final metrics.
+6. **Estimate uncertainty and deadline risk** using calibration errors, separate from training and testing.
 7. **Explore a request** in the interactive form and review the prediction before making a human decision.
 
 ## Run locally
 
-**Requirements:** Python 3.10–3.13 and pip.
+**Requirements:** Python 3.10–3.13 and pip. Use `python3` to create the environment on Ubuntu if the `python` command is unavailable.
 
 ### Ubuntu / Linux / macOS
 
@@ -106,13 +107,28 @@ A negative R² is possible and can indicate that the model performs worse than t
 git clone https://github.com/VISSHAL-ANAND/mathproject.git
 cd mathproject
 
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 streamlit run app.py
 ```
+
+### Fish shell (Linux)
+
+```fish
+git clone https://github.com/VISSHAL-ANAND/mathproject.git
+cd mathproject
+
+python3 -m venv .venv
+source .venv/bin/activate.fish
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+streamlit run app.py
+```
+
+On Ubuntu, if creating the virtual environment fails because the `venv` module is missing, install the packages using `sudo apt install python3-venv python3-pip`, then retry the environment-creation step.
 
 ### Windows PowerShell
 
@@ -148,7 +164,7 @@ Generated files are saved under `artifacts/` and are excluded from Git.
 
 ## Use your own CSV
 
-The required target column is **`response_time_minutes`**. It must contain a numeric, non-negative duration from submission to **first response**—not ticket resolution time. The current workflow requires at least 50 usable rows.
+The required target is **`response_time_minutes`** or the supported alias **`first_response_min`**. It must contain a numeric, non-negative duration from submission to **first response**—not ticket resolution time. The current workflow requires at least 100 usable rows so it can reserve enough rows for validation and uncertainty calibration.
 
 | Column | Type | Description |
 |---|---|---|
@@ -159,11 +175,17 @@ The required target column is **`response_time_minutes`**. It must contain a num
 | `hour_submitted` | Numeric | Hour of day, 0–23 |
 | `day_of_week` | Numeric | Day index, 0–6; use one consistent mapping |
 | `backlog` | Numeric | Queue size when the request is submitted |
-| `agent_experience_years` | Numeric | Agent experience in years |
+| `agent_experience_years` | Numeric | Agent experience in years; include only if known when the prediction is made |
+
+For CSV compatibility, `queue` can be mapped to `category`, and `opened_at` can be used to derive `hour_submitted` and `day_of_week`. When a valid `opened_at` column is present, the app evaluates chronologically: earlier tickets are used before the later test period. `day_of_week` uses Monday = 0 through Sunday = 6. Features must be known at the intended prediction time; do not include later-assigned or post-response information.
 
 Include only predictors that are available at the time a request is submitted. Unsupported extra columns are ignored. More rows help only when the data is relevant, correctly labelled, and representative of the situation you want to predict.
 
 **Privacy:** upload only data you are authorized to use. Remove names, student IDs, email addresses, ticket text, and other unnecessary personal or confidential information first.
+
+### Optional sample CSV
+
+You can try the [Datanemics Customer Support Tickets CSV](https://datanemics.com/datasets/data/support-tickets.csv). The source describes it as **synthetic and CC0 public domain**; it includes `first_response_min`, `opened_at`, `queue`, `priority`, and `channel`, which the app can normalize. It is useful for testing the import flow, not for claiming real-world accuracy. Blank first-response values indicate tickets that were never answered in that dataset; those rows are excluded from regression, which can bias the results toward answered tickets. The app shows how many rows were excluded.
 
 ## Project structure
 
