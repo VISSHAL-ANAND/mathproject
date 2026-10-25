@@ -42,6 +42,8 @@ The project uses established statistical methods; it does not claim to invent a 
 - Estimate a prediction interval from a separate calibration split.
 - Estimate the empirical chance of exceeding a user-selected response deadline.
 - Explore actual-versus-predicted and prediction-error charts.
+- Break down median and 90th-percentile waits by priority and category; view trends when timestamps are available.
+- Explore a cautious backlog what-if scenario while clearly distinguishing model association from causal impact.
 - Upload a CSV or use reproducible synthetic demonstration data.
 - Use chronological evaluation when usable `opened_at` timestamps are present; otherwise use a reproducible random split.
 - Run automated tests through GitHub Actions.
@@ -169,7 +171,7 @@ The required target is **`response_time_minutes`** or the supported alias **`fir
 
 | Column | Type | Description |
 |---|---|---|
-| `response_time_minutes` | Numeric target | Minutes until first response |
+| `response_time_minutes` / `first_response_min` | Numeric target | Minutes until first response |
 | `priority` | Category | For example: low, medium, high, urgent |
 | `category` | Category | For example: account, billing, technical, general |
 | `channel` | Category | For example: email, chat, web |
@@ -226,8 +228,8 @@ Passing tests verifies the tested software behavior; it does **not** prove real-
 These are planned improvements, not features claimed as complete:
 
 - Validate the models on a suitable, approved, anonymized real dataset.
-- Use time-based evaluation for historical ticket logs.
-- Compare against a simple baseline, such as predicting the training-set mean.
+- Validate all estimates on an approved, representative real dataset.
+- Improve evaluation for operational changes and possibly add queue-capacity simulations after validating assumptions.
 - Check model errors by priority and issue category.
 - Add a queue/backlog what-if simulation and monitor model reliability over time.
 
