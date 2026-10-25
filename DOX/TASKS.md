@@ -1,22 +1,22 @@
 # Tasks
 
 ## Implemented
-- [x] Human-centered CampusHelp scope and white/blue dashboard.
-- [x] Descriptive statistics and bootstrap confidence interval for the mean.
+- [x] Define a human-centered campus support use case and white/blue dashboard.
+- [x] Add regression models and a training-mean baseline.
+- [x] Select the highlighted model on validation MAE, not test MAE.
 - [x] Separate training, validation, calibration, and test data.
-- [x] Select the model using validation MAE, never the test score.
-- [x] Compare with a training-mean baseline.
 - [x] Use chronological evaluation when valid `opened_at` timestamps exist.
-- [x] Normalize common CSV aliases and disclose rows omitted for invalid/missing targets.
-- [x] Add prediction intervals and empirical deadline-risk estimates.
-- [x] Reject unsupported finite conformal-interval coverage when calibration data is too small.
-- [x] Document the optional synthetic CC0 CSV and its limitations.
+- [x] Normalize common CSV aliases and disclose rows omitted for missing/invalid targets.
+- [x] Add descriptive statistics, a bootstrap confidence interval, prediction intervals, and deadline-risk estimates.
+- [x] Validate minimum calibration sample sizes for high-coverage intervals.
+- [x] Add priority/category breakdowns, timestamp trend, and a cautious backlog what-if scenario.
+- [x] Document the optional synthetic CC0 sample and its limitations.
+- [x] Add a Streamlit app smoke test to CI.
 
 ## Remaining
-- [ ] Confirm CI on the latest commit.
+- [ ] Confirm the latest GitHub Actions run.
 - [ ] Browser-test the dashboard and prediction flow.
 - [ ] Validate on authorized, representative real campus/help-desk data.
-- [ ] Review performance by priority/category and test on a later time period.
-- [ ] Investigate unanswered tickets explicitly before reporting overall waiting-time performance.
-- [ ] Add queue/backlog what-if simulation after its assumptions are reviewed.
-- [ ] Prepare the final academic report and viva notes based on actual, documented results.
+- [ ] Review errors by priority/category and evaluate on a later time period.
+- [ ] Investigate unanswered tickets explicitly before claiming overall waiting-time performance.
+- [ ] Prepare the final academic report and viva notes using actual, documented results.
